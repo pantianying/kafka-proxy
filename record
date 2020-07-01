@@ -1,2 +1,0 @@
-./kafka-proxy server --bootstrap-server-mapping "172.17.40.166:9092,127.0.0.1:32400" \
-                   --dynamic-listeners-disable

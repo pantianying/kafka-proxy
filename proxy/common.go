@@ -40,6 +40,7 @@ func myCopy(dst io.Writer, src io.Reader) (readErr bool, err error) {
 	buf := make([]byte, 4096)
 	for {
 		n, err := src.Read(buf)
+		logrus.Infof("copy data", string(buf))
 		if n > 0 {
 			if _, werr := dst.Write(buf[:n]); werr != nil {
 				if err == nil {
@@ -66,6 +67,7 @@ func myCopyN(dst io.Writer, src io.Reader, size int64, buf []byte) (readErr bool
 	for {
 		n, err = src.Read(buf)
 		if n > 0 {
+			logrus.Infof("copy data {%v}", string(buf[0:n]))
 			nw, werr := dst.Write(buf[0:n])
 			if nw > 0 {
 				written += int64(nw)
@@ -108,7 +110,7 @@ func copyError(readDesc, writeDesc string, readErr bool, err error) {
 	} else {
 		desc = "Writing data to " + writeDesc
 	}
-	logrus.Infof("%v had error: %s", desc, err.Error())
+	logrus.Errorf("%v had error: %s", desc, err.Error())
 }
 
 func copyThenClose(cfg ProcessorConfig, remote, local DeadlineReadWriteCloser, brokerAddress string, remoteDesc, localDesc string) {

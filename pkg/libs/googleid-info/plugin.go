@@ -82,7 +82,7 @@ func NewTokenInfo(options TokenInfoOptions) (*TokenInfo, error) {
 	op := func() error {
 		return tokenInfo.refreshCerts()
 	}
-	err := backoff.Retry(op, backoff.WithMaxTries(backoff.NewConstantBackOff(1*time.Second), 3))
+	err := backoff.Retry(op, backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 3))
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting of google certs failed")
 	}

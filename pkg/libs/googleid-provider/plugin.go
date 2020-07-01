@@ -81,7 +81,7 @@ func NewTokenProvider(options TokenProviderOptions) (*TokenProvider, error) {
 	op := func() error {
 		return initToken(tokenProvider)
 	}
-	err := backoff.Retry(op, backoff.WithMaxTries(backoff.NewConstantBackOff(1*time.Second), 3))
+	err := backoff.Retry(op, backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 3))
 	if err != nil {
 		return nil, errors.Wrap(err, "getting of initial google-id-token failed")
 	}
