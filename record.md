@@ -9,7 +9,7 @@
 ```
 
 ```
-copy 逻辑在 copyThenClose
+copy 逻辑在 copyThenClose,myCopyN
 
 ```
                    

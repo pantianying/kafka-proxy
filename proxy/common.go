@@ -61,13 +61,16 @@ func myCopy(dst io.Writer, src io.Reader) (readErr bool, err error) {
 func myCopyN(dst io.Writer, src io.Reader, size int64, buf []byte) (readErr bool, err error) {
 	// limit reader  - EOF when finished
 	src = io.LimitReader(src, size)
-
+	var temp = make([]byte, 0, size)
 	var written int64
 	var n int
 	for {
 		n, err = src.Read(buf)
 		if n > 0 {
-			logrus.Infof("copy data {%v}", string(buf[0:n]))
+			logrus.Debugf("copy data {%v}", string(buf[0:n]))
+			t := make([]byte, n)
+			copy(t, buf[0:n])
+			temp = append(temp, t...)
 			nw, werr := dst.Write(buf[0:n])
 			if nw > 0 {
 				written += int64(nw)
@@ -91,7 +94,7 @@ func myCopyN(dst io.Writer, src io.Reader, size int64, buf []byte) (readErr bool
 			break
 		}
 	}
-
+	logrus.Infof("size:%v,读包总长:%v,数据:{%v}", size, len(temp), string(temp))
 	if written == size {
 		return false, nil
 	}
