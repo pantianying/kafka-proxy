@@ -94,12 +94,9 @@ func (handler *DefaultRequestHandler) handleRequest(dst DeadlineWriter, src Dead
 		return true, err
 	}
 
-	// write - send to broker
-	if _, err = dst.Write(keyVersionBuf); err != nil {
-		return false, err
-	}
 	// 4 bytes were written as keyVersionBuf (ApiKey, ApiVersion)
-	if readErr, err = myCopyN(dst, src, int64(requestKeyVersion.Length-4), ctx.buf); err != nil {
+	logrus.Infof("requestKeyVersion:{%+v}", requestKeyVersion)
+	if readErr, err = myCopyNRequest(dst, src, requestKeyVersion, ctx.buf, keyVersionBuf); err != nil {
 		return readErr, err
 	}
 	if requestKeyVersion.ApiKey == apiKeySaslHandshake {
@@ -193,6 +190,7 @@ func (handler *DefaultResponseHandler) handleResponse(dst DeadlineWriter, src De
 			return false, err
 		}
 		// 4 bytes were written as responseHeaderBuf (CorrelationId) + tagged fields
+		logrus.Infof("responseHeader:{%+v}", responseHeader)
 		if readErr, err = myCopyN(dst, src, int64(responseHeader.Length-readResponsesHeaderLength), ctx.buf); err != nil {
 			return readErr, err
 		}

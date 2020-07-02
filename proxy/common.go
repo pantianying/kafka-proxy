@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/Shopify/sarama"
+	"github.com/grepplabs/kafka-proxy/proxy/protocol"
+	// "github.com/Shopify/sarama"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -67,7 +70,6 @@ func myCopyN(dst io.Writer, src io.Reader, size int64, buf []byte) (readErr bool
 	for {
 		n, err = src.Read(buf)
 		if n > 0 {
-			logrus.Debugf("copy data {%v}", string(buf[0:n]))
 			t := make([]byte, n)
 			copy(t, buf[0:n])
 			temp = append(temp, t...)
@@ -94,7 +96,6 @@ func myCopyN(dst io.Writer, src io.Reader, size int64, buf []byte) (readErr bool
 			break
 		}
 	}
-	logrus.Infof("size:%v,读包总长:%v,数据:{%v}", size, len(temp), string(temp))
 	if written == size {
 		return false, nil
 	}
@@ -104,6 +105,65 @@ func myCopyN(dst io.Writer, src io.Reader, size int64, buf []byte) (readErr bool
 		err = io.EOF
 	}
 	return
+}
+
+// copy request and decode data
+func myCopyNRequest(dst io.Writer, src io.Reader, kv *protocol.RequestKeyVersion, buf []byte, keyVersionBuf []byte) (readErr bool, err error) {
+	var (
+		headerLen = len(keyVersionBuf)
+		bodySize  = int64(kv.Length - 4)
+		readed    int64
+		n         int
+		all       = make([]byte, 0, headerLen+int(bodySize))
+	)
+	// limit reader  - EOF when finished
+	src = io.LimitReader(src, bodySize)
+	all = append(all, keyVersionBuf...)
+	for {
+		n, err = src.Read(buf)
+		if n > 0 {
+			logrus.Debugf("copy data {%v}", string(buf[0:n]))
+			t := make([]byte, n)
+			copy(t, buf[0:n])
+			all = append(all, t...)
+			readed += int64(n)
+			if err != nil {
+				// Read and write error; just report read error (it happened first).
+				readErr = true
+				break
+			}
+		}
+		if err != nil {
+			readErr = true
+			break
+		}
+	}
+
+	logrus.Info("xxxxxxxxx ", all)
+	if true { // 判断需不需要替换topic
+		request, n, e := sarama.DecodeRequest(all)
+		if e != nil {
+			logrus.Error("asdfasdfas", e)
+			return false, e
+		}
+		logrus.Infof("request 解析:{%+v}, n:%v, err:%v,body:{%+v},data:%v", request, n, err, request.Body(), all)
+		request.ChangeTopic("test-topic-yangchun1", "test-topic-yangchun")
+		logrus.Infof("替换后的body{%+v}", request.Body())
+		newAll, e := sarama.Encode(request)
+		if e != nil {
+			logrus.Error(err)
+			return false, err
+		}
+		_, err = dst.Write(newAll)
+		logrus.Info("dst.Write [pty] ", newAll, err)
+	} else {
+		_, err = dst.Write(all)
+		logrus.Info("dst.Write [pty] ", all, err)
+	}
+	if err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func copyError(readDesc, writeDesc string, readErr bool, err error) {
