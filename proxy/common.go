@@ -14,6 +14,11 @@ import (
 	"time"
 )
 
+const (
+	BrokerTopic = "test-topic-yangchun1"
+	ClientTopic = "test-topic-yangchun"
+)
+
 type DeadlineReadWriteCloser interface {
 	io.ReadWriteCloser
 	SetWriteDeadline(t time.Time) error
@@ -139,31 +144,110 @@ func myCopyNRequest(dst io.Writer, src io.Reader, kv *protocol.RequestKeyVersion
 		}
 	}
 
-	logrus.Info("xxxxxxxxx ", all)
 	if true { // 判断需不需要替换topic
 		request, n, e := sarama.DecodeRequest(all)
 		if e != nil {
 			logrus.Error("asdfasdfas", e)
 			return false, e
 		}
-		logrus.Infof("request 解析:{%+v}, n:%v, err:%v,body:{%+v},data:%v", request, n, err, request.Body(), all)
-		request.ChangeTopic("test-topic-yangchun1", "test-topic-yangchun")
-		logrus.Infof("替换后的body{%+v}", request.Body())
+		logrus.Infof("request 解析:{%+v}, n:%v, err:%v,body:{%+v}", request, n, err, request.Body())
+		request.ChangeTopic(BrokerTopic, ClientTopic)
+		logrus.Infof("request 替换后的body{%+v}", request.Body())
 		newAll, e := sarama.Encode(request)
 		if e != nil {
 			logrus.Error(err)
 			return false, err
 		}
 		_, err = dst.Write(newAll)
-		logrus.Info("dst.Write [pty] ", newAll, err)
+		logrus.Info("dst.Write [request] ", err)
 	} else {
 		_, err = dst.Write(all)
-		logrus.Info("dst.Write [pty] ", all, err)
+		logrus.Info("dst.Write [request] ", err)
 	}
 	if err != nil {
 		return false, err
 	}
 	return false, nil
+}
+
+func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.ResponseHeader, buf []byte, responseHeaderBuf, unknownTaggedFields []byte) (readErr bool, err error) {
+	// limit reader  - EOF when finished
+	// dst 目前还什么都没有写入，改变body数据长度需要改变responseHeader中的长度值
+	// src中已经读完了responseHeaderBuf和unknownTaggedFields
+	var (
+		readResponsesHeaderLength = int32(4 + len(unknownTaggedFields))
+		bodyLen                   = int64(responseHeader.Length - readResponsesHeaderLength)
+	)
+	src = io.LimitReader(src, bodyLen)
+
+	var body = make([]byte, 0, bodyLen)
+	var n int
+	for {
+		n, err = src.Read(buf)
+		if n > 0 {
+			t := make([]byte, n)
+			copy(t, buf[0:n])
+			body = append(body, t...)
+			if err != nil {
+				// Read and write error; just report read error (it happened first).
+				readErr = true
+				break
+			}
+		}
+		if err != nil {
+			readErr = true
+			break
+		}
+	}
+	if true { //判断是否要替换topic
+		logrus.Infof("[response] 转换前 responseHeader:{%+v},headBuf:{%v},unknownTaggedFields:%v,body:{%v}",
+			responseHeader, responseHeaderBuf, len(unknownTaggedFields), string(body))
+		produceResponse := &sarama.ProduceResponse{}
+		e := sarama.VersionedDecode(body, produceResponse, 0)
+		if e != nil {
+			logrus.Error("sarama.VersionedDecode", e)
+			return false, e
+		}
+		produceResponse.ChangeTopic(BrokerTopic, ClientTopic)
+		newBody, e := sarama.Encode(produceResponse)
+		if e != nil {
+			logrus.Error("sarama.Encode(produceResponse)", e)
+			return false, e
+		}
+		responseHeader.Length = int32(len(newBody)) + readResponsesHeaderLength
+		responseHeaderBuf, err = protocol.Encode(responseHeader)
+		if err != nil {
+			logrus.Error(err)
+			return false, err
+		}
+		logrus.Infof("[response] 转换后 headBuf:{%v},unknownTaggedFields:%v,body:%v",
+			responseHeaderBuf, len(unknownTaggedFields), string(newBody))
+
+		if _, err := dst.Write(responseHeaderBuf); err != nil {
+			return false, err
+		}
+		if _, err := dst.Write(unknownTaggedFields); err != nil {
+			return false, err
+		}
+		if _, err := dst.Write(newBody); err != nil {
+			return false, err
+		}
+	} else {
+		logrus.Infof("[response] 未转换 responseHeader:{%+v},headBuf:{%v},unknownTaggedFields:%v,body:%v",
+			responseHeader, len(responseHeaderBuf), len(unknownTaggedFields), string(body))
+		if _, err := dst.Write(responseHeaderBuf); err != nil {
+			return false, err
+		}
+		if _, err := dst.Write(unknownTaggedFields); err != nil {
+			return false, err
+		}
+		if _, err := dst.Write(body); err != nil {
+			return false, err
+		}
+	}
+
+	//
+	return
 }
 
 func copyError(readDesc, writeDesc string, readErr bool, err error) {

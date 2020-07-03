@@ -8,7 +8,7 @@ import (
 // ErrInsufficientData is returned when decoding and the packet is truncated. This can be expected
 // when requesting messages, since as an optimization the server is allowed to return a partial message at the end
 // of the message set.
-var ErrInsufficientData = errors.New("kafka: insufficient data to decode packet, more bytes expected")
+var ErrInsufficientData = errors.New("kafka: [kafka proxy] insufficient data to decode packet, more bytes expected")
 
 // PacketEncodingError is returned from a failure while encoding a Kafka packet. This can happen, for example,
 // if you try to encode a string over 2^15 characters in length, since Kafka's encoding rules do not permit that.

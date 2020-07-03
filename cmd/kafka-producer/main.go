@@ -24,9 +24,13 @@ func main() {
 		Value: sarama.ByteEncoder("hello world"),
 		Key:   sarama.StringEncoder("test-key"),
 	}
-	p, offset, err := producer.SendMessage(msg)
-	if err != nil {
-		panic(err)
+	for {
+		p, offset, err := producer.SendMessage(msg)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("send message ok:", p, offset)
+		time.Sleep(1 * time.Second)
 	}
-	fmt.Println("send message ok:", p, offset)
+
 }
