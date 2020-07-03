@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/grepplabs/kafka-proxy/cache"
 	"github.com/grepplabs/kafka-proxy/proxy/protocol"
 	// "github.com/Shopify/sarama"
 	"github.com/sirupsen/logrus"
@@ -144,14 +145,14 @@ func myCopyNRequest(dst io.Writer, src io.Reader, kv *protocol.RequestKeyVersion
 		}
 	}
 
-	if true { // 判断需不需要替换topic
+	if kv.ApiKey == 0 { // 判断需不需要替换topic,目前只有producer请求支持替换topic
 		request, n, e := sarama.DecodeRequest(all)
 		if e != nil {
 			logrus.Error("asdfasdfas", e)
 			return false, e
 		}
 		logrus.Infof("request 解析:{%+v}, n:%v, err:%v,body:{%+v}", request, n, err, request.Body())
-		request.ChangeTopic(BrokerTopic, ClientTopic)
+		request.ChangeTopic(BrokerTopic, ClientTopic, cache.GetTopicCfg())
 		logrus.Infof("request 替换后的body{%+v}", request.Body())
 		newAll, e := sarama.Encode(request)
 		if e != nil {
@@ -159,10 +160,8 @@ func myCopyNRequest(dst io.Writer, src io.Reader, kv *protocol.RequestKeyVersion
 			return false, err
 		}
 		_, err = dst.Write(newAll)
-		logrus.Info("dst.Write [request] ", err)
 	} else {
 		_, err = dst.Write(all)
-		logrus.Info("dst.Write [request] ", err)
 	}
 	if err != nil {
 		return false, err
@@ -208,7 +207,7 @@ func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.Resp
 			logrus.Error("sarama.VersionedDecode", e)
 			return false, e
 		}
-		produceResponse.ChangeTopic(BrokerTopic, ClientTopic)
+		produceResponse.ChangeTopic(BrokerTopic, ClientTopic, cache.GetTopicCfg())
 		newBody, e := sarama.Encode(produceResponse)
 		if e != nil {
 			logrus.Error("sarama.Encode(produceResponse)", e)

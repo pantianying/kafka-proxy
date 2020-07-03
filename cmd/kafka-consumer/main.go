@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	kafkaBrokerAddr = []string{"127.0.0.1:32400"}
+	kafkaBrokerAddr = []string{"172.17.40.166:9092"}
 	groupId         = "yangchun"
 )
 
@@ -28,7 +28,7 @@ func main() {
 	for i := 0; i < 24; i++ {
 		go func(i int) {
 			fmt.Println("start ", i)
-			partition_consumer, err := consumer.ConsumePartition("test-topic-yangchun", int32(i), sarama.OffsetOldest)
+			partition_consumer, err := consumer.ConsumePartition("test-topic-yangchun1", int32(i), sarama.OffsetOldest)
 			if err != nil {
 				fmt.Printf("try create partition_consumer error %s\n", err.Error())
 				return

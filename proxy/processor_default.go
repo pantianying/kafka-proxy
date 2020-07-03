@@ -182,18 +182,6 @@ func (handler *DefaultResponseHandler) handleResponse(dst DeadlineWriter, src De
 			return false, err
 		}
 	} else {
-		// write - send to local
-		//if _, err := dst.Write(responseHeaderBuf); err != nil {
-		//	return false, err
-		//}
-		//if _, err := dst.Write(unknownTaggedFields); err != nil {
-		//	return false, err
-		//}
-		// 4 bytes were written as responseHeaderBuf (CorrelationId) + tagged fields
-		logrus.Infof("responseHeader:{%+v},unknownTaggedFields:{%v}", responseHeader, string(unknownTaggedFields))
-		//if readErr, err = myCopyNResponse(dst, src, int64(responseHeader.Length-readResponsesHeaderLength), ctx.buf); err != nil {
-		//	return readErr, err
-		//}
 		if readErr, err = myCopyNResponse(dst, src, &responseHeader, ctx.buf, responseHeaderBuf, unknownTaggedFields); err != nil {
 			return readErr, err
 		}
