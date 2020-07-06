@@ -7,9 +7,9 @@ import (
 )
 
 var (
-	kafkaBrokerAddr = []string{"172.17.40.166:32400"} //kafka机器
-	// kafkaBrokerAddr = []string{"127.0.0.1:32400"}
-	topic = "test-topic-yangchun"
+	//kafkaBrokerAddr = []string{"172.17.40.166:32400"} //kafka机器
+	kafkaBrokerAddr = []string{"127.0.0.1:32400"}
+	topic           = "test-topic-yangchun"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.ByteEncoder("hello world"),
-		Key:   sarama.StringEncoder("test-key"),
+		Key:   sarama.StringEncoder("aabbaabaabb"),
 	}
 	for {
 		p, offset, err := producer.SendMessage(msg)
@@ -31,7 +31,7 @@ func main() {
 			panic(err)
 		}
 		fmt.Println("send message ok:", p, offset)
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 
 }

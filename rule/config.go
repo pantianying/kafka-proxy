@@ -24,10 +24,33 @@ import (
 //	BrokerTopic(ConfigKey string) string
 //}
 
-var ruleConfig = &RuleConfig{}
+var ruleConfig *RuleConfig
+
+func init() {
+	ruleConfig = &RuleConfig{
+		ClientTopicRuleMap: map[string]*ClientTopicRule{
+			"test-topic-yangchun": {
+				ClientTopic: "test-topic-yangchun",
+				TestKey:     []string{"aabbaabaabb"},
+				BrokerTopicTestKeyMap: map[string][]string{
+					"test-topic-yangchun1": []string{"aabbaabaabb"},
+				},
+			},
+		},
+	}
+}
 
 type RuleConfig struct {
 	ClientTopicRuleMap map[string]*ClientTopicRule
+}
+
+// 一个clienttopic一个ClientTopicRule
+type ClientTopicRule struct {
+	ClientTopic string
+	// 总的TestKey合集
+	TestKey []string
+	// brokerTopic--> testKey
+	BrokerTopicTestKeyMap map[string][]string
 }
 
 func GetRuleCfg() *RuleConfig {
@@ -46,19 +69,10 @@ func (r *RuleConfig) CheckClientTopicIsRule(clientTopic string) bool {
 func (r *RuleConfig) GetClientTopicByResponseTopic(brokerTopic string) string {
 	for _, cr := range r.ClientTopicRuleMap {
 		if _, ok := cr.BrokerTopicTestKeyMap[brokerTopic]; ok {
-			return cr.clientTopic
+			return cr.ClientTopic
 		}
 	}
 	return ""
-}
-
-// 一个clienttopic一个ClientTopicRule
-type ClientTopicRule struct {
-	clientTopic string
-	// 总的TestKey合集
-	TestKey []string
-	// brokerTopic--> testKey
-	BrokerTopicTestKeyMap map[string][]string
 }
 
 func (c *ClientTopicRule) CheckIsReplaceTopic(key, value []byte) (bool, string) {
