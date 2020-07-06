@@ -143,15 +143,15 @@ func myCopyNRequest(dst io.Writer, src io.Reader, kv *protocol.RequestKeyVersion
 	if kv.ApiKey == 0 { // 判断需不需要替换topic,目前只有producer请求支持替换topic
 		request, n, e := sarama.DecodeRequest(all)
 		if e != nil {
-			logrus.Error("asdfasdfas", e)
+			logrus.Error("sarama.DecodeRequest", e)
 			return false, e
 		}
-		logrus.Infof("request 解析:{%+v}, n:%v, err:%v,body:{%+v}", request, n, err, request.Body())
+		logrus.Infof("[request] 解析:{%+v}, n:%v, err:%v,body:{%+v}", request, n, err, request.Body())
 		request.ChangeTopic(rule.GetRuleCfg())
-		logrus.Infof("request 替换后的body{%+v}", request.Body())
+		logrus.Infof("[request] 替换后的body{%+v}", request.Body())
 		newAll, e := sarama.Encode(request)
 		if e != nil {
-			logrus.Error(err)
+			logrus.Error("[request] ", err)
 			return false, err
 		}
 		_, err = dst.Write(newAll)
