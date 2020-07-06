@@ -7,8 +7,9 @@ import (
 )
 
 var (
-	kafkaBrokerAddr = []string{"172.17.40.166:9092"}
-	groupId         = "yangchun"
+	kafkaBrokerAddr = []string{"127.0.0.1:32400"}
+	//kafkaBrokerAddr = []string{"172.17.40.166:9092"}
+	groupId = "yangchun"
 )
 
 func main() {

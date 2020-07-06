@@ -164,13 +164,14 @@ func myCopyNRequest(dst io.Writer, src io.Reader, kv *protocol.RequestKeyVersion
 	return false, nil
 }
 
-func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.ResponseHeader, buf []byte, responseHeaderBuf, unknownTaggedFields []byte) (readErr bool, err error) {
+func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.ResponseHeader, buf []byte, responseHeaderBuf, unknownTaggedFields []byte, reqVersion *protocol.RequestKeyVersion) (readErr bool, err error) {
 	// limit reader  - EOF when finished
 	// dst 目前还什么都没有写入，改变body数据长度需要改变responseHeader中的长度值
-	// src中已经读完了responseHeaderBuf和unknownTaggedFields
+	// src 中已经读完了responseHeaderBuf和unknownTaggedFields
 	var (
 		readResponsesHeaderLength = int32(4 + len(unknownTaggedFields))
 		bodyLen                   = int64(responseHeader.Length - readResponsesHeaderLength)
+		readed                    int
 	)
 	src = io.LimitReader(src, bodyLen)
 
@@ -181,6 +182,7 @@ func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.Resp
 		if n > 0 {
 			t := make([]byte, n)
 			copy(t, buf[0:n])
+			readed += n
 			body = append(body, t...)
 			if err != nil {
 				// Read and write error; just report read error (it happened first).
@@ -193,7 +195,8 @@ func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.Resp
 			break
 		}
 	}
-	if true { //判断是否要替换topic
+
+	if true && reqVersion.ApiKey == 0 { //判断是否要替换topic
 		logrus.Infof("[response] 转换前 responseHeader:{%+v},headBuf:{%v},unknownTaggedFields:%v,body:{%v}",
 			responseHeader, responseHeaderBuf, len(unknownTaggedFields), string(body))
 		produceResponse := &sarama.ProduceResponse{}
@@ -230,17 +233,24 @@ func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.Resp
 		logrus.Infof("[response] 未转换 responseHeader:{%+v},headBuf:{%v},unknownTaggedFields:%v,body:%v",
 			responseHeader, len(responseHeaderBuf), len(unknownTaggedFields), string(body))
 		if _, err := dst.Write(responseHeaderBuf); err != nil {
+			logrus.Error(err)
 			return false, err
 		}
 		if _, err := dst.Write(unknownTaggedFields); err != nil {
+			logrus.Error(err)
 			return false, err
 		}
 		if _, err := dst.Write(body); err != nil {
+			logrus.Error(err)
 			return false, err
 		}
 	}
-
-	//
+	if err != nil {
+		logrus.Info("[myCopyNResponse] ", err)
+	}
+	if readed == int(bodyLen) {
+		return false, nil
+	}
 	return
 }
 

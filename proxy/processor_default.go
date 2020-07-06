@@ -182,7 +182,7 @@ func (handler *DefaultResponseHandler) handleResponse(dst DeadlineWriter, src De
 			return false, err
 		}
 	} else {
-		if readErr, err = myCopyNResponse(dst, src, &responseHeader, ctx.buf, responseHeaderBuf, unknownTaggedFields); err != nil {
+		if readErr, err = myCopyNResponse(dst, src, &responseHeader, ctx.buf, responseHeaderBuf, unknownTaggedFields, requestKeyVersion); err != nil {
 			return readErr, err
 		}
 	}
