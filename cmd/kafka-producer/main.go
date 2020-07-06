@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	kafkaBrokerAddr = []string{"127.0.0.1:32400"}
+	kafkaBrokerAddr = []string{"172.17.40.166:32400"}
 	topic           = "test-topic-yangchun"
 )
 
