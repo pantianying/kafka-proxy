@@ -5,19 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Shopify/sarama"
-	"github.com/grepplabs/kafka-proxy/cache"
 	"github.com/grepplabs/kafka-proxy/proxy/protocol"
+	"github.com/grepplabs/kafka-proxy/rule"
 	// "github.com/Shopify/sarama"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"sync"
 	"time"
-)
-
-const (
-	BrokerTopic = "test-topic-yangchun1"
-	ClientTopic = "test-topic-yangchun"
 )
 
 type DeadlineReadWriteCloser interface {
@@ -152,7 +147,7 @@ func myCopyNRequest(dst io.Writer, src io.Reader, kv *protocol.RequestKeyVersion
 			return false, e
 		}
 		logrus.Infof("request 解析:{%+v}, n:%v, err:%v,body:{%+v}", request, n, err, request.Body())
-		request.ChangeTopic(BrokerTopic, ClientTopic, cache.GetTopicCfg())
+		request.ChangeTopic(rule.GetRuleCfg())
 		logrus.Infof("request 替换后的body{%+v}", request.Body())
 		newAll, e := sarama.Encode(request)
 		if e != nil {
@@ -207,7 +202,7 @@ func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.Resp
 			logrus.Error("sarama.VersionedDecode", e)
 			return false, e
 		}
-		produceResponse.ChangeTopic(BrokerTopic, ClientTopic, cache.GetTopicCfg())
+		produceResponse.ChangeTopic(rule.GetRuleCfg())
 		newBody, e := sarama.Encode(produceResponse)
 		if e != nil {
 			logrus.Error("sarama.Encode(produceResponse)", e)
