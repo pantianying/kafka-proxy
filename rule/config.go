@@ -1,105 +1,74 @@
 package rule
 
 import (
-	"bytes"
-	"fmt"
-	"github.com/Shopify/sarama"
+	"encoding/json"
+	"github.com/ghodss/yaml"
+	"github.com/nacos-group/nacos-sdk-go/clients/config_client"
+	"github.com/nacos-group/nacos-sdk-go/clients/nacos_client"
+	"github.com/nacos-group/nacos-sdk-go/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/common/http_agent"
+	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/sirupsen/logrus"
 )
-
-//
-//type TopicRule interface {
-//	GetClientTopicRule(clientTopic string) ClientTopicRule
-//	// 判断该topic是否有测试配置
-//	CheckClientTopicIsRule(clientTopic string) bool
-//	// 通过测试topic找到真实的clientTopic
-//	// 如果不是测试的则返回 ""
-//	GetClientTopicByResponseTopic(brokerTopic string) string
-//}
-//
-//type ClientTopicRule interface {
-//	// 确认是不是需要替换topic
-//	// 传入msg的key和value，返回是否匹配以及根据哪个配置ConfigKey匹配到
-//	CheckIsReplaceTopic(key, value []byte) (bool, string)
-//	// 通过配置值返回brokerTopic
-//	BrokerTopic(ConfigKey string) string
-//}
 
 var ruleConfig *RuleConfig
 
 func init() {
-	ruleConfig = &RuleConfig{
-		ClientTopicRuleMap: map[string]*ClientTopicRule{
-			"test-topic-yangchun": {
-				ClientTopic: "test-topic-yangchun",
-				TestKey:     []string{"aabbaabaabb"},
-				BrokerTopicTestKeyMap: map[string][]string{
-					"test-topic-yangchun1": []string{"aabbaabaabb"},
-				},
-			},
-		},
+	//ruleConfig = &RuleConfig{
+	//	ClientTopicRuleMap: map[string]*ClientTopicRule{
+	//		"test-topic-yangchun": {
+	//			ClientTopic: "test-topic-yangchun",
+	//			TestKey:     []string{"aabbaabaabb"},
+	//			BrokerTopicRuleMap: map[string]*BrokerTopicRule{
+	//				"test-topic-yangchun1": {TestKey: []string{"aabbaabaabb"}},
+	//			},
+	//		},
+	//	},
+	//}
+	nacosClient := createConfigClientTest()
+	content, _ := nacosClient.GetConfig(vo.ConfigParam{
+		DataId: "kafka-proxy-config",
+		Group:  "DEFAULT_GROUP",
+	})
+	logrus.Info("get nacos config:", content)
+	if ruleConfig == nil {
+		ruleConfig = &RuleConfig{}
 	}
-}
-
-type RuleConfig struct {
-	ClientTopicRuleMap map[string]*ClientTopicRule
-}
-
-// 一个clienttopic一个ClientTopicRule
-type ClientTopicRule struct {
-	ClientTopic string
-	// 总的TestKey合集
-	TestKey []string
-	// brokerTopic--> testKey
-	BrokerTopicTestKeyMap map[string][]string
-}
-
-func GetRuleCfg() *RuleConfig {
-	return ruleConfig
-}
-
-func (r *RuleConfig) GetClientTopicRule(clientTopic string) sarama.ClientTopicRule {
-	return r.ClientTopicRuleMap[clientTopic]
-}
-
-func (r *RuleConfig) CheckClientTopicIsRule(clientTopic string) bool {
-	_, ok := r.ClientTopicRuleMap[clientTopic]
-	return ok
-}
-
-func (r *RuleConfig) GetClientTopicByResponseTopic(brokerTopic string) string {
-	for _, cr := range r.ClientTopicRuleMap {
-		if _, ok := cr.BrokerTopicTestKeyMap[brokerTopic]; ok {
-			return cr.ClientTopic
+	err := yaml.Unmarshal([]byte(content), ruleConfig)
+	if err != nil {
+		panic(err)
+	}
+	for k := range ruleConfig.ClientTopicRuleMap {
+		ruleConfig.ClientTopicRuleMap[k].ClientTopic = k
+		tmpKeys := []string{}
+		for _, v2 := range ruleConfig.ClientTopicRuleMap[k].BrokerTopicRuleMap {
+			tmpKeys = append(tmpKeys, v2.TestKey...)
 		}
+		ruleConfig.ClientTopicRuleMap[k].TestKey = tmpKeys
 	}
-	return ""
+	bytes, _ := json.Marshal(ruleConfig)
+	logrus.Infof("get nacos config:%+v", string(bytes))
 }
-
-func (c *ClientTopicRule) CheckIsReplaceTopic(key, value []byte) (bool, string) {
-	for _, k := range c.TestKey {
-		if k == string(key) || bytes.Contains(value, []byte(k)) {
-			return true, k
-		}
+func createConfigClientTest() config_client.ConfigClient {
+	nacosClientConfig := constant.ClientConfig{
+		TimeoutMs:           10 * 1000,
+		BeatInterval:        5 * 1000,
+		ListenInterval:      300 * 1000,
+		NotLoadCacheAtStart: true,
+		Username:            "nacos",
+		Password:            "nacos",
 	}
-	return false, ""
-}
 
-func (c *ClientTopicRule) BrokerTopic(configKey string) string {
-	for brokerTopic, testKeys := range c.BrokerTopicTestKeyMap {
-		for _, k := range testKeys {
-			if k == configKey {
-				return brokerTopic
-			}
-		}
+	nacosServerConfig := constant.ServerConfig{
+		IpAddr:      "nacos-dev.dian.so",
+		Port:        80,
+		ContextPath: "/nacos",
 	}
-	fmt.Println("unexpect BrokerTopic ", configKey, c)
-	return ""
-}
 
-//func (t *TopicConfig) BrokerTopic() string {
-//	return "test-topic-yangchun1"
-//}
-//
-//func (t *TopicConfig) ClientTopic() string {
-//	return "test-topic-yangchun"
-//}
+	nc := nacos_client.NacosClient{}
+	nc.SetServerConfig([]constant.ServerConfig{nacosServerConfig})
+	nc.SetClientConfig(nacosClientConfig)
+	nc.SetHttpAgent(&http_agent.HttpAgent{})
+	client, _ := config_client.NewConfigClient(&nc)
+	return client
+}
