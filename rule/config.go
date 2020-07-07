@@ -11,7 +11,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var ruleConfig *RuleConfig
+var (
+	ruleConfig  *RuleConfig
+	nacosClient config_client.ConfigClient
+	nacosDataId = "kafka-proxy-config"
+	nacosGroup  = "DEFAULT_GROUP"
+)
 
 func init() {
 	//ruleConfig = &RuleConfig{
@@ -25,12 +30,24 @@ func init() {
 	//		},
 	//	},
 	//}
-	nacosClient := createConfigClientTest()
+	nacosClient = createConfigClientTest()
 	content, _ := nacosClient.GetConfig(vo.ConfigParam{
-		DataId: "kafka-proxy-config",
-		Group:  "DEFAULT_GROUP",
+		DataId: nacosDataId,
+		Group:  nacosGroup,
 	})
-	logrus.Info("get nacos config:", content)
+	updateConfig(content)
+
+	nacosClient.ListenConfig(vo.ConfigParam{
+		DataId: nacosDataId,
+		Group:  nacosGroup,
+		OnChange: func(namespace, group, dataId, data string) {
+			logrus.Info("config changed group:" + group + ", dataId:" + dataId + ", data:" + data)
+			updateConfig(data)
+		},
+	})
+}
+
+func updateConfig(content string) error {
 	if ruleConfig == nil {
 		ruleConfig = &RuleConfig{}
 	}
@@ -48,7 +65,9 @@ func init() {
 	}
 	bytes, _ := json.Marshal(ruleConfig)
 	logrus.Infof("get nacos config:%+v", string(bytes))
+	return err
 }
+
 func createConfigClientTest() config_client.ConfigClient {
 	nacosClientConfig := constant.ClientConfig{
 		TimeoutMs:           10 * 1000,
