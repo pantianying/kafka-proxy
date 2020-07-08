@@ -200,7 +200,7 @@ func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.Resp
 		logrus.Infof("[response] 转换前 responseHeader:{%+v},headBuf:{%v},unknownTaggedFields:%v,body:{%v}",
 			responseHeader, responseHeaderBuf, len(unknownTaggedFields), string(body))
 		produceResponse := &sarama.ProduceResponse{}
-		e := sarama.VersionedDecode(body, produceResponse, 0)
+		e := sarama.VersionedDecode(body, produceResponse, reqVersion.ApiVersion)
 		if e != nil {
 			logrus.Error("sarama.VersionedDecode", e)
 			return false, e
@@ -231,7 +231,7 @@ func myCopyNResponse(dst io.Writer, src io.Reader, responseHeader *protocol.Resp
 		}
 	} else {
 		logrus.Infof("[response] 未转换 responseHeader:{%+v},headBuf:{%v},unknownTaggedFields:%v,body:%v",
-			responseHeader, len(responseHeaderBuf), len(unknownTaggedFields), string(body))
+			responseHeader, len(responseHeaderBuf), len(unknownTaggedFields), len(body))
 		if _, err := dst.Write(responseHeaderBuf); err != nil {
 			logrus.Error(err)
 			return false, err
